@@ -1,0 +1,107 @@
+model:
+  name: "SegFormer"
+  img_size: 512
+  num_classes: 1
+  vit_config: "vit_large_patch16_224"
+  backbone_weights:
+  freeze_backbone:
+  out_indices: [ 5, 11, 17, 23 ]
+  input_dim: 3
+  vit_dim: 1024
+  decoder_dim: 1024
+  segmentation_kernel: 1
+
+dataset:
+  batch_size: 16
+  num_workers: 2
+  img_size: 256
+  resize: False
+  cache_images: False
+  cache_images_max_size: 1024
+  normalization_method: "by_channel"
+  attributes: [ "seismic" ]   # [ "lowspectral", "midspectral", "highspectral" ]
+  label_name: "label"
+  means_stds_path: "./data/means_stds_attributes.json"
+  train:
+    csv_path: "path/to/train_csv_file.csv"
+    data_dir: "path/to/train_data"
+    name: "Seismic"
+  val:
+    csv_path: "path/to/val_csv_file.csv"
+    data_dir: "path/to/val_data"
+    name: "Seismic"
+  test:
+    csv_path: "path/to/test_csv_file.csv"
+    data_dir: "path/to/test_data"
+    name: "Seismic"
+
+solver:
+  name: "adamw"
+  loss: "dice"
+  learning_rate: 1e-4
+  # weight_decay: 0.01
+  max_epochs: 100
+  ignore_index: 2
+  dev_run: False
+
+# Top-level scheduler (SchedulerBuilder expects config['scheduler'])
+scheduler:
+  type: "cosine"
+  eta_min: 1e-6
+  interval: "epoch"
+  frequency: 1
+  monitor: "val_loss"
+
+checkpoint:
+  save_dir: "./checkpoints/"
+  run_name: "segformer"
+  save_checkpoint: True
+  save_last: True
+
+logging:
+  metrics: [ "precision", "recall", "accuracy", "f1", "iou" ]
+  log_steps: False # Whether to log metrics at each step (True) or only at the end of each epoch (False)
+  log_images: False
+  num_positive: 8
+  num_negative: 8
+  threshold: 0.02
+  ignore_index: 2
+  cmap: viridis
+
+misc:
+  seed: 42
+  val_check_interval: 1.0
+  save_checkpoint_every_n_epochs: 5
+
+augmentations:
+- { name: "random_horizontal_flip", params: { prob: 0.5 } }
+- { name: "random_vertical_flip", params: { prob: 0.5 } }
+- { name: "random_rotation", params: { degrees: 30 } }
+- { name: "gaussian_noise", params: { mean: 0.0, std: 0.5 } }
+
+test:
+  model: "last"
+  metrics: [ "precision", "recall", "accuracy", "f1", "iou" ]
+  il_metrics: [ "precision", "recall", "accuracy", "f1", "auroc" ]
+  il_threshold: 0.01
+  plot_roc: True
+  save_thresholds: True
+  save_plots: True
+  percentiles: [ 5, 95 ]
+  n_plots: 16 # for each of the plotted styles (no channel, <5% channel, >20% channel, no filter)
+  data:
+  - {
+      name: "seismic",
+      save_name: "parihaka",
+      label: "label",
+      ignore_index: 2,
+      data_dir: "path/to/test_data",
+      csv_path: "path/to/test_csv_file.csv",
+      means_stds_path: "./data/means_stds_attributes.json",
+      crop_size: 256,
+      resize: 512,
+      crop_overlap: 96,
+      metric_batch: 16,
+      minibatch_size: 64,
+      plot_seed: 42
+    }
